@@ -1,0 +1,4 @@
+test_id,quote_id,variant,visual_format,caption_baseline,cta,platforms,schedule_date,utm_content,sample_size_goal,win_metric,win_threshold,fallback_rule,status
+T-001,Q-0002,A,face_cam_overlay,"Tell the story of choosing clarity once.",Read the book,"IG,TikTok,Shorts",,hookCM1,"1500 impressions",3s_view_pct,">=30%","If below, try text-over-broll",planned
+T-001,Q-0002,B,text_over_broll,"Same caption; only hook style changes.",Read the book,"IG,TikTok,Shorts",,hookCM1B,"1500 impressions",3s_view_pct,">=30%","If below, test question form",planned
+T-002,Q-0001,A,quote_card,"Short reflection + one practice.",Get the companion,"IG,LI,X",,hookQ1A,"100 link clicks",save_share_per_1k,">=5","Swap CTA to book if saves>8",planned

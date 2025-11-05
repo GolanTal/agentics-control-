@@ -1,0 +1,4 @@
+quote_id,source_type,quote_text,source_reference,location,theme,tone_tag,length_category,platform_fit,owner,consent_status,paraphrase_ok,status,notes
+Q-0001,book_internal,We are one.,The New World: The Key,Prologue,Awakening,uplifting,ultra_short,"IG,TikTok,Shorts,X",Architect,not_needed,yes,collected,
+Q-0002,author_original,Clarity is a muscle, not a mood.,Author original,,Clarity,pragmatic,ultra_short,"IG,TikTok,Shorts,X,LI",Architect,not_needed,yes,collected,
+Q-0003,external_with_permission,,,URL or contact,Community,social_proof,short,"IG,LI,X",Community,requested,no,pending,Add consent proof link
