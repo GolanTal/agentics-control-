@@ -1,9 +1,10 @@
 name: agentics-scheduler
+
 on:
   schedule:
-    - cron: "0 13 * * 1"    # Mon plan (UTC)
-    - cron: "0 14 * * 1-5"  # Weekdays content
-    - cron: "0 21 * * 5"    # Fri report
+    - cron: "0 13 * * 1"     # Mon plan
+    - cron: "0 14 * * 1-5"   # Weekdays content
+    - cron: "0 21 * * 5"     # Fri report
   workflow_dispatch:
 
 jobs:
@@ -12,24 +13,57 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: python -m pip install --upgrade pip && pip install -r requirements.txt
-      - name: Run pipeline (mine → normalize → schedule)
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+
+      # 🔎 Sanity check (doesn't print secrets, just presence/length)
+      - name: Sanity check env
+        run: |
+          python - <<'PY'
+          import os
+          print("APPS_URL set? ", bool(os.environ.get("APPS_URL")))
+          print("APPS_TOKEN length: ", len(os.environ.get("APPS_TOKEN","")))
+          print("CONTROL_SHEET_ID set? ", bool(os.environ.get("CONTROL_SHEET_ID")))
+          print("GOOGLE_SERVICE_ACCOUNT_JSON set? ", bool(os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")))
+          PY
         env:
-          APPS_URL:   ${{ secrets.APPS_URL }}
+          APPS_URL:  ${{ secrets.APPS_URL }}
           APPS_TOKEN: ${{ secrets.APPS_TOKEN }}
-          SOURCE_TEXT_URL: ${{ secrets.SOURCE_TEXT_URL }}   # optional
+          CONTROL_SHEET_ID: ${{ secrets.CONTROL_SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Run pipeline
         run: bash scripts/run_pipeline.sh
+        env:
+          APPS_URL:  ${{ secrets.APPS_URL }}
+          APPS_TOKEN: ${{ secrets.APPS_TOKEN }}
+          CONTROL_SHEET_ID: ${{ secrets.CONTROL_SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
 
   weekly_report:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
-      - run: python -m pip install --upgrade pip && pip install -r requirements.txt
-      - name: Build analytics one-pager
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+
+      # 🔎 Optional sanity check here, too
+      - name: Sanity check env
+        run: |
+          python - <<'PY'
+          import os
+          print("CONTROL_SHEET_ID set? ", bool(os.environ.get("CONTROL_SHEET_ID")))
+          print("GOOGLE_SERVICE_ACCOUNT_JSON set? ", bool(os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")))
+          PY
         env:
-          APPS_URL:   ${{ secrets.APPS_URL }}
-          APPS_TOKEN: ${{ secrets.APPS_TOKEN }}
+          CONTROL_SHEET_ID: ${{ secrets.CONTROL_SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Build analytics one-pager
         run: python agents/analyst.py
+        env:
+          CONTROL_SHEET_ID: ${{ secrets.CONTROL_SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
