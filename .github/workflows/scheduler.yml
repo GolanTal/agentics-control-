@@ -1,32 +1,35 @@
 name: agentics-scheduler
 on:
   schedule:
-    - cron: "0 13 * * 1"    # Mon plan
+    - cron: "0 13 * * 1"    # Mon plan (UTC)
     - cron: "0 14 * * 1-5"  # Weekdays content
     - cron: "0 21 * * 5"    # Fri report
   workflow_dispatch:
+
 jobs:
   daily_content:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: '3.11' }
-      - run: pip install -r requirements.txt
-      - name: Run pipeline
-        run: scripts/run_pipeline.sh
+        with: { python-version: "3.11" }
+      - run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - name: Run pipeline (mine → normalize → schedule)
         env:
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          CONTROL_SHEET_ID: ${{ secrets.CONTROL_SHEET_ID }}
+          APPS_URL:   ${{ secrets.APPS_URL }}
+          APPS_TOKEN: ${{ secrets.APPS_TOKEN }}
+          SOURCE_TEXT_URL: ${{ secrets.SOURCE_TEXT_URL }}   # optional
+        run: bash scripts/run_pipeline.sh
+
   weekly_report:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: { python-version: '3.11' }
-      - run: pip install -r requirements.txt
+        with: { python-version: "3.11" }
+      - run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Build analytics one-pager
-        run: python agents/analyst.py
         env:
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          CONTROL_SHEET_ID: ${{ secrets.CONTROL_SHEET_ID }}
+          APPS_URL:   ${{ secrets.APPS_URL }}
+          APPS_TOKEN: ${{ secrets.APPS_TOKEN }}
+        run: python agents/analyst.py
