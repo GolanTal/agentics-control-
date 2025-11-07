@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 import os, re, itertools, requests
 
-APPS_URL   = os.environ["APPS_URL"]
-APPS_TOKEN = os.environ["APPS_TOKEN"]
+# --- ENV GUARD ---
+APPS_URL   = os.getenv("APPS_URL", "").strip()
+APPS_TOKEN = os.getenv("APPS_TOKEN", "").strip()
+if not (APPS_URL.startswith("http://") or APPS_URL.startswith("https://")):
+    raise SystemExit("APPS_URL missing/invalid in env")
+if not APPS_TOKEN:
+    raise SystemExit("APPS_TOKEN missing in env")
+# -----------------
+
 SOURCE_TEXT_URL  = os.environ.get("SOURCE_TEXT_URL", "")
 SOURCE_TEXT_PATH = os.environ.get("SOURCE_TEXT_PATH", "sources/book.txt")
 
@@ -14,19 +21,23 @@ BACKLOG_HEADERS = [
 
 def api_get(sheet):
     r = requests.get(APPS_URL, params={"op":"get","sheet":sheet,"token":APPS_TOKEN}, timeout=60)
-    r.raise_for_status(); return r.json()
+    r.raise_for_status()
+    return r.json()
 
 def api_post(payload):
     data = dict(payload); data["token"] = APPS_TOKEN
     r = requests.post(APPS_URL, json=data, timeout=60)
-    r.raise_for_status(); return r.json()
+    r.raise_for_status()
+    return r.json()
 
 def ensure_sheet():
     return api_post({"op":"ensureSheet","sheet":"Quotes_Backlog","headers":BACKLOG_HEADERS})
 
 def load_text():
     if SOURCE_TEXT_URL:
-        r = requests.get(SOURCE_TEXT_URL, timeout=60); r.raise_for_status(); return r.text
+        r = requests.get(SOURCE_TEXT_URL, timeout=60)
+        r.raise_for_status()
+        return r.text
     if os.path.exists(SOURCE_TEXT_PATH):
         return open(SOURCE_TEXT_PATH, "r", encoding="utf-8").read()
     return ""
@@ -39,9 +50,9 @@ def sentences(text):
         if 8 <= len(s) <= 180:
             yield s
 
-def uniq(iterable):
+def uniq(xs):
     seen=set()
-    for x in iterable:
+    for x in xs:
         k=x.lower()
         if k in seen: continue
         seen.add(k); yield x
@@ -55,16 +66,19 @@ def fit_for(length):
 
 def next_ids(n, existing_rows):
     base=len(existing_rows)+1
-    for i in range(n): yield f"Q-{base+i:04d}"
+    for i in range(n):
+        yield f"Q-{base+i:04d}"
 
 def main():
     ensure_sheet()
     text = load_text()
     if not text:
         print("quote_miner: no SOURCE_TEXT_URL or sources/book.txt; skipping."); return
+
     cands = list(itertools.islice(uniq(sentences(text)), 50))
     if not cands:
         print("quote_miner: no sentences found."); return
+
     existing = api_get("Quotes_Backlog").get("rows", [])
     ids = list(next_ids(len(cands), existing))
 

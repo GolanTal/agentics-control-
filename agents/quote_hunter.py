@@ -1,71 +1,62 @@
 #!/usr/bin/env python3
-import os, json
-import gspread
-from google.oauth2.service_account import Credentials
+import os, requests
 
-BACKLOG_HEADERS = [
-  "quote_id","source_type","quote_text","source_reference","location",
-  "theme","tone_tag","length_category","platform_fit","owner",
-  "consent_status","paraphrase_ok","status","notes"
-]
+# --- ENV GUARD ---
+APPS_URL   = os.getenv("APPS_URL", "").strip()
+APPS_TOKEN = os.getenv("APPS_TOKEN", "").strip()
+if not (APPS_URL.startswith("http://") or APPS_URL.startswith("https://")):
+    raise SystemExit("APPS_URL missing/invalid in env")
+if not APPS_TOKEN:
+    raise SystemExit("APPS_TOKEN missing in env")
+# -----------------
 
-def auth():
-    sa = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = Credentials.from_service_account_info(sa, scopes=scopes)
-    return gspread.authorize(creds)
+def api_get(sheet):
+    r = requests.get(APPS_URL, params={"op":"get","sheet":sheet,"token":APPS_TOKEN}, timeout=60)
+    r.raise_for_status()
+    return r.json()
 
-def ensure_ws(sh, title, headers):
-    try:
-        ws = sh.worksheet(title)
-    except gspread.WorksheetNotFound:
-        ws = sh.add_worksheet(title=title, rows=1000, cols=len(headers))
-        ws.append_row(headers)
-    return ws
+def api_post(payload):
+    data = dict(payload); data["token"] = APPS_TOKEN
+    r = requests.post(APPS_URL, json=data, timeout=60)
+    r.raise_for_status()
+    return r.json()
 
-def classify_length(txt: str) -> str:
-    n = len((txt or "").strip())
-    if n <= 40:  return "ultra_short"
-    if n <= 140: return "short"
-    return "long"
+def classify_length(s):
+    n = len(s or "")
+    return "ultra_short" if n<=40 else ("short" if n<=140 else "long")
 
-def platform_fit_for(length: str) -> str:
-    return {
-        "ultra_short": "IG,TikTok,Shorts,X",
-        "short":       "IG,LI,X",
-        "long":        "LI,X",
-    }.get(length, "IG,LI,X")
+def fit_for(length):
+    return {"ultra_short":"IG,TikTok,Shorts,X","short":"IG,LI,X","long":"LI,X"}[length]
 
 def main():
-    gc = auth()
-    sh = gc.open_by_key(os.environ["CONTROL_SHEET_ID"])
-    ws = ensure_ws(sh, "Quotes_Backlog", BACKLOG_HEADERS)
+    data = api_get("Quotes_Backlog")
+    headers, rows = data.get("headers", []), data.get("rows", [])
+    if not rows:
+        print("quote_hunter: nothing to update."); return
 
-    rows = ws.get_all_records()
     updated = 0
-
-    for i, r in enumerate(rows, start=2):  # data starts at row 2
+    for r in rows:
+        status = (r.get("status") or "").strip().lower()
+        if status in ("approved","rejected","collected"):
+            continue
         q = (r.get("quote_text") or "").strip()
         if not q:
             continue
 
-        status = (r.get("status") or "").strip().lower()
-        if status in ("approved","rejected","proposed"):
-            continue
+        length = classify_length(q)
+        platform = fit_for(length)
+        rownum = int(r["_row"])
 
-        length = r.get("length_category") or classify_length(q)
-        platform = r.get("platform_fit") or platform_fit_for(length)
-        owner = r.get("owner") or "Architect"
-        consent = r.get("consent_status") or "not_needed"
-
-        ws.update(f"H{i}:K{i}", [[length, platform, owner, consent]])
-        ws.update_acell(f"M{i}", "collected")
+        # H: length_category, I: platform_fit, J: owner, K: consent_status
+        api_post({"op":"updateRange","sheet":"Quotes_Backlog",
+                  "a1":f"H{rownum}:K{rownum}",
+                  "values":[[length, platform, "Architect", "not_needed"]]})
+        # M: status
+        api_post({"op":"updateCell","sheet":"Quotes_Backlog",
+                  "a1":f"M{rownum}","value":"collected"})
         updated += 1
 
     print(f"quote_hunter: updated {updated} rows.")
 
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
