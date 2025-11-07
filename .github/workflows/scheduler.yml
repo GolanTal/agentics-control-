@@ -17,7 +17,6 @@ jobs:
           python-version: '3.11'
       - run: pip install -r requirements.txt
 
-      # 🔎 Sanity check (doesn't print secrets, just presence/length)
       - name: Sanity check env
         run: |
           python - <<'PY'
@@ -50,20 +49,25 @@ jobs:
           python-version: '3.11'
       - run: pip install -r requirements.txt
 
-      # 🔎 Optional sanity check here, too
       - name: Sanity check env
         run: |
           python - <<'PY'
           import os
+          print("APPS_URL set? ", bool(os.environ.get("APPS_URL")))
+          print("APPS_TOKEN length: ", len(os.environ.get("APPS_TOKEN","")))
           print("CONTROL_SHEET_ID set? ", bool(os.environ.get("CONTROL_SHEET_ID")))
           print("GOOGLE_SERVICE_ACCOUNT_JSON set? ", bool(os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")))
           PY
         env:
+          APPS_URL:  ${{ secrets.APPS_URL }}
+          APPS_TOKEN: ${{ secrets.APPS_TOKEN }}
           CONTROL_SHEET_ID: ${{ secrets.CONTROL_SHEET_ID }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
 
       - name: Build analytics one-pager
         run: python agents/analyst.py
         env:
+          APPS_URL:  ${{ secrets.APPS_URL }}
+          APPS_TOKEN: ${{ secrets.APPS_TOKEN }}
           CONTROL_SHEET_ID: ${{ secrets.CONTROL_SHEET_ID }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
